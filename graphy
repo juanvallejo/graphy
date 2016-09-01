@@ -1,0 +1,45 @@
+#!/usr/bin/env node
+
+var exec = require('child_process').exec;
+
+// local packages
+var cmd = require('./pkg/cmd/cmd.js');
+var modules = require('./pkg/module/module.js');
+var tree = require('./pkg/tree/tree.js');
+var flag = require('./pkg/cmd/flag/flag.js');
+
+// settings
+var root_cmd = 'openshift';
+var modules_dir = './modules';
+
+// receives command line objects (flags, args, vars)
+function cmd_arg_handler(cli) {
+	if (flag.hasFlag(cli.flags, 'root')) {
+		var rootFlag = flag.getFlag(cli.flags, 'root');
+		root_cmd = rootFlag.getValue();
+	}
+
+	modules.parseAndImport('./modules', function(err, objs) {
+		module_handler(err, objs, cli);
+	});
+}
+
+// receives parsed json objects containing module data 
+function module_handler(err, objs, cli) {
+	if(err) {
+		return console.log('error: unable to read modules from ' + modules_dir + ':', err);
+	}
+
+	console.log('received module objects', objs);
+}
+
+// initializes command tree traversal
+function init_traversal() {
+
+}
+
+(function main(argv) {
+	argv.splice(0,2);
+	cmd.parse_args(argv, cmd_arg_handler);
+	// tree.traverse(root_cmd);
+})(process.argv);
