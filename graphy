@@ -14,6 +14,10 @@ var module_args = [];
 
 // receives command line objects (flags, args, vars)
 function cmd_arg_handler(cli) {
+    if (flag.hasFlag(cli.flags, 'help')) {
+        return console.log(usage_output());
+    }
+
 	if (!flag.hasFlag(cli.flags, 'module')) {
 		return console.log('ERR MissingModule: no default module exists, please specify a module to use with the "--module=" flag.');
 	}
@@ -63,8 +67,12 @@ function init_traversal(moduleObj) {
 	tree.traverse(root_cmd, moduleObj, module_args);
 }
 
+// returns a string of usage help
+function usage_output() {
+    return "Usage: graphy [--root=openshift] --module=mymodule --mymodule=mymodule_args"
+}
+
 (function main(argv) {
 	argv.splice(0,2);
 	cmd.parseArgs(argv, cmd_arg_handler);
-	// tree.traverse(root_cmd);
 })(process.argv);

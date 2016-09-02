@@ -14,7 +14,7 @@ command.parseArgs = function(argv, handler) {
 	var objects = {};
 
 	for (var i = 0; i < argv.length; i++) {
-		var f = argv[i].match(/^--.*/gi);
+		var f = argv[i].match(/^-(-)?.*/gi);
 		var a = argv[i].match(/^[a-zA-Z0-9]+$/gi);
 
 		if (f != null && f.length) {
