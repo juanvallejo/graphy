@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-var exec = require('child_process').exec;
-
 // local packages
 var cmd = require('./pkg/cmd/cmd.js');
 var modules = require('./pkg/module/module.js');
@@ -10,16 +8,37 @@ var flag = require('./pkg/cmd/flag/flag.js');
 
 // settings
 var root_cmd = 'openshift';
-var modules_dir = './modules';
+var modules_dir = __dirname + '/modules';
+var use_module = null;
+var module_args = [];
 
 // receives command line objects (flags, args, vars)
 function cmd_arg_handler(cli) {
+	if (!flag.hasFlag(cli.flags, 'module')) {
+		return console.log('ERR MissingModule: no default module exists, please specify a module to use with the "--module=" flag.');
+	}
+
+	var moduleFlag = flag.getFlag(cli.flags, 'module')
+	use_module = moduleFlag.getValue();
+
+	// retrieve module-specific args
+	if(flag.hasFlag(cli.flags, use_module)) {
+		var moduleArgs = flag.getFlag(cli.flags, use_module);
+		module_args.push(moduleArgs.getValue());
+	}
+
 	if (flag.hasFlag(cli.flags, 'root')) {
 		var rootFlag = flag.getFlag(cli.flags, 'root');
 		root_cmd = rootFlag.getValue();
 	}
 
-	modules.parseAndImport('./modules', function(err, objs) {
+	if (flag.hasFlag(cli.flags, 'modules_dir')) {
+		var dirFlag = flag.getFlag(cli.flags, 'modules_dir');
+		modules_dir = dirFlag.getValue();
+	}
+
+
+	modules.readAndImport(modules_dir, function(err, objs) {
 		module_handler(err, objs, cli);
 	});
 }
@@ -30,16 +49,22 @@ function module_handler(err, objs, cli) {
 		return console.log('error: unable to read modules from ' + modules_dir + ':', err);
 	}
 
-	console.log('received module objects', objs);
+	var module = modules.getModuleByName(objs, use_module);
+	if(module == null) {
+		return console.log('ERR Unable to find a module with name "' + use_module + '"');
+	}
+
+	init_traversal(module, cli);
 }
 
 // initializes command tree traversal
-function init_traversal() {
-
+// receives a Module object
+function init_traversal(moduleObj) {
+	tree.traverse(root_cmd, moduleObj, module_args);
 }
 
 (function main(argv) {
 	argv.splice(0,2);
-	cmd.parse_args(argv, cmd_arg_handler);
+	cmd.parseArgs(argv, cmd_arg_handler);
 	// tree.traverse(root_cmd);
 })(process.argv);

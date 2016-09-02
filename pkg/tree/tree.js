@@ -1,33 +1,35 @@
+var exec = require('child_process').exec;
+
 // define command tree module
 var tree = {};
 
 // traverses the command tree starting at specified node
-tree.traverse = function(args) {
+tree.traverse = function(args, moduleObj, moduleArgs) {
 	var oc = exec(args + ' -h');
 	oc.stdout.on('data', function(data) {
 		parse(data);
 	});
 
 	oc.stderr.on('data', function(data) {
-		parse(data);
+		parse(data, true);
 	});
 
-	function parse(data) {
+	function parse(data, withErr) {
 		if (typeof data == 'object') {
 			data = data.toString();
 		}
 
 		var lines = data.split('\n');
-		var lncoutn = lines.length;
+		var lncount = lines.length;
 		var cmds = [];
 		var do_add = false;
 
+		if (withErr && (!lncount || lncount < 2)) {
+			console.log('Warning: received error output from command:', lines.join(' '));
+		}
+
 		for (var i = 0; i < lines.length; i++) {
-			if (lines[i].match(/\-\-dry\-run/gi)) {
-				console.log('');
-				console.log('Command Name:', args);
-				console.log('--dry-run=:', lines[i].replace(/^(\ )+(.*)/gi, '$2'));
-			}
+			if (moduleObj && moduleObj.main(args, lines[i], i, moduleArgs)) {}
 
 			if (do_add && lines[i] == '') {
 				do_add = false;
@@ -41,7 +43,7 @@ tree.traverse = function(args) {
 		}
 
 		for (var i = 0; i < cmds.length; i++) {
-			traverse(args + ' ' + cmds[i], cmds[i])
+			tree.traverse(args + ' ' + cmds[i], moduleObj, moduleArgs)
 		}
 
 	}

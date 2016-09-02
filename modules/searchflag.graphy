@@ -1,3 +1,12 @@
-{
-	"key": "value"
+module.exports = {
+	"name": "searchflag",
+	"description": "Filters commands by flag name.",
+	"main": function(fullCmdName, outputLine, index, moduleArgs) {
+		var regex = new RegExp(moduleArgs[0] + "=", "gi");
+		if (outputLine.match(regex)) {
+			console.log('');
+			console.log('Command Name:', fullCmdName);
+			console.log(outputLine.replace(/^(\ )+(.*)/gi, '$2'));
+		}
+	}
 }

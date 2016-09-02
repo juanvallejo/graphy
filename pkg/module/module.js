@@ -5,13 +5,41 @@ var modules = {};
 // Module instance: receives an optional json
 // object and instantiates with its properties
 function Module(object) {
+	this.name = object.name || 'untitled';
+	this.description = object.description || 'No description.';
 
+	// assign main method
+	this.main = object.main || function(args) {
+		console.log('ERR MODULE<' + this.name + '> Corrupt module; missing main method.');
+	};
+
+	this.getName = function() {
+		return this.name;
+	};
 }
 
-// reads *.graphy files into json objects from a
+// reads *.graphy files into js objects from a
 // specified location and creates module objects.
 // receives a path and a required handler function
-modules.parseAndImport = function(path, handler) {
+modules.readAndImport = function(path, handler) {
+	if (typeof handler != 'function') {
+		throw "Invalid handler: must be of type \"function\"";
+	}
+
+	modules.readFromPath(path, function(err, files) {
+		if (err) {
+			return handler.call(modules, err, null);
+		}
+
+		modules.importFromPath(path, files, handler);
+	});
+};
+
+// reads *.graphy files into js objects from a
+// specified location and returns an array of
+// filenames consisting of a full or relative path
+// to each module file.
+modules.readFromPath = function(path, handler) {
 	if (typeof handler != 'function') {
 		throw "Invalid handler: must be of type \"function\"";
 	}
@@ -21,13 +49,25 @@ modules.parseAndImport = function(path, handler) {
 			return handler.call(modules, err, null);
 		}
 
-		parse_files(path, filter_filenames(files), function(err, objects) {
-			if (err) {
-				return handler.call(modules, err, null);
-			}
+		handler.call(modules, null, filter_filenames(files));
+	});
+};
 
-			handler.call(modules, null, modules.newFromObjects(objects));
-		});
+// receives a base path and an array of filenames consisting
+// of a full or relative path to each module file and imports
+// and validates each file into a Module object.
+// receives a required handler function that takes an error
+// and an array of valid Module files as its only arguments
+modules.importFromPath = function(path, files, handler) {
+	if (typeof handler != 'function') {
+		throw "Invalid handler: must be of type \"function\"";
+	}
+	parse_files(path, files, function(err, objects) {
+		if (err) {
+			return handler.call(modules, err, null);
+		}
+
+		handler.call(modules, null, modules.newFromObjects(objects));
 	});
 };
 
@@ -35,8 +75,28 @@ modules.parseAndImport = function(path, handler) {
 // array of parsed Module instances. if a json object
 // is of invalid format, it is skipped.
 modules.newFromObjects = function(objs) {
-	// TODO return an array of Modules
+	var objects = [];
+	for (var i = 0; i < objs.length; i++) {
+		var obj = validate_object(objs[i]);
+		if (obj != null) {
+			objects.push(new Module(objs[i]));
+			continue;
+		}
+		console.log('Invalid module object', objs[i]);
+	}
+	return objects;
 };
+
+// receives a list of Module objects and returns a single
+// Module matching a given moduleName, or null if none exists
+modules.getModuleByName = function(moduleObjs, moduleName) {
+	for (var i = 0; i < moduleObjs.length; i++) {
+		if (moduleObjs[i].getName() == moduleName) {
+			return moduleObjs[i];
+		}
+	}
+	return null;
+}
 
 // receives an array of filenames and filters out
 // system files and non-graphy module files.
@@ -53,8 +113,8 @@ function filter_filenames(files) {
 
 // receives a path to destination containing
 // each filename in an array of filenames and
-// parses each item's contents into json objects.
-// if a file's json format is invalid, that file
+// parses each item's contents into js objects.
+// if a file's format is invalid, that file
 // is omitted from the list of returned files.
 // receives an optional callback function.
 function parse_files(root_path, filenames, callback) {
@@ -73,35 +133,38 @@ function parse_files(root_path, filenames, callback) {
 
 	// holds parsed module objects
 	var objects = [];
-	var parsedCount = 0;
+	var errs = [];
 
 	for (var i = 0; i < filenames.length; i++) {
-		fs.readFile(root_path + separator + filenames[i], function(err, data) {
-			return (function(err, filename) {
-				if (err) {
-					return callback.call('error: unable to read module file "' + filename + '":', err);
-				}
-
-				if (data.toString) {
-					data = data.toString();
-				}
-
-				var obj = validate_json_string(data, function(e) {
-					if (e) {
-						console.log('err: invalid file format for "' + filename + '":', e);
-					}
-				});
-
-				if (obj != null) {
-					objects.push(obj);
-				}
-
-				if (++parsedCount == filenames.length) {
-					callback.call(this, null, objects);
-				}
-			})(err, filenames[i]);
-		});
+		try {
+			var obj = require(root_path + separator + filenames[i]);
+			objects.push(obj);
+		} catch (e) {
+			console.log('error: unable to read module file "' + filenames[i] + '":', e);
+			errs.push(e);
+		}
 	}
+
+	if (errs.length) {
+		return callback.call(this, errs, objects);
+	}
+
+	callback.call(this, null, objects);
+}
+
+// receives a json object and checks its validity.
+// returns a null value if no valid or supported
+// module fields are found, otherwise returns
+// the originally passed json object.
+// 
+// mininum required "valid" fields are:
+//  "name": [string]   name of the module
+//  "main": [function] entry point of module
+function validate_object(obj) {
+	if (!obj.name || !obj.main || !(typeof obj.main == 'function')) {
+		return null;
+	}
+	return obj;
 }
 
 // receives a json formatted string and checks its validity.
@@ -109,7 +172,7 @@ function parse_files(root_path, filenames, callback) {
 // a parsed json object is returned. if an optional handler
 // function is provided, an error or parsed json object is
 // passed to it with the other value being null.
-function validate_json_string(str, handler) {
+function validate_object_string(str, handler) {
 	if (typeof handler != 'function') {
 		handler = function() {};
 	}

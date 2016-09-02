@@ -1,13 +1,13 @@
 var flag = require('./flag/flag.js');
 
-var helpers = {}
+var command = {}
 
 // parse command line arguments and flags.
 // outputs a json object with arrays of
 // flag objects and argument strings.
 // receives an array of command line args.
 // optionally receives a handler function.
-helpers.parse_args = function(argv, handler) {
+command.parseArgs = function(argv, handler) {
 	var flags = [];
 	var args = [];
 	var vars = [];
@@ -18,7 +18,7 @@ helpers.parse_args = function(argv, handler) {
 		var a = argv[i].match(/^[a-zA-Z0-9]+$/gi);
 
 		if (f != null && f.length) {
-			var flagKeyValueArray = helpers.parse_flag(f[0]);
+			var flagKeyValueArray = command.parseFlag(f[0]);
 			var flagObject = flag.newFromArray(flagKeyValueArray);
 			flags.push(flagObject);
 		} else if (a != null && a.length) {
@@ -33,7 +33,7 @@ helpers.parse_args = function(argv, handler) {
 	};
 
 	if (typeof handler == 'function') {
-		handler.call(helpers, objects);
+		handler.call(command, objects);
 	}
 
 	return objects
@@ -42,7 +42,7 @@ helpers.parse_args = function(argv, handler) {
 // parse a command-line flag
 // receives a string matching ^--[a-zA-Z0-9\-\_]+\=.*$
 // returns an array containing a key and a value
-helpers.parse_flag = function(flag) {
+command.parseFlag = function(flag) {
 	if (!flag.match(/^-(-)?[a-zA-Z0-9\-\_]+(\=.*)?$/gi)) {
 		console.log("Invalid flag \"" + flag + "\"\nFlags must only contain chars (A-Z0-9), -, _, and can be followed by an = and a value.");
 		process.exit(1);
@@ -56,4 +56,4 @@ helpers.parse_flag = function(flag) {
 	return pair;
 };
 
-module.exports = helpers;
+module.exports = command;
